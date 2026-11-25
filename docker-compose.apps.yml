@@ -1,0 +1,190 @@
+services:
+  ms-kafka-admin:
+    build: ../ms-digitalfix-kafka-admin
+    container_name: df-ms-kafka-admin
+    depends_on:
+      kafka-1: { condition: service_healthy }
+      kafka-2: { condition: service_healthy }
+      kafka-3: { condition: service_healthy }
+    ports:
+      - "127.0.0.1:8086:8086"
+    environment:
+      JAVA_TOOL_OPTIONS: "-Xmx220m -Xms128m"
+      SERVER_PORT: 8086
+      KAFKA_BOOTSTRAP_SERVERS: kafka-1:29092,kafka-2:29093,kafka-3:29094
+    healthcheck:
+      test: [ "CMD-SHELL", "wget -qO- http://localhost:8086/actuator/health | grep -q UP" ]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+    networks: [ digitalfix-net ]
+    restart: unless-stopped
+
+  ms-workorders:
+    build: ../ms-digitalfix-workorders
+    container_name: df-ms-workorders
+    depends_on:
+      ms-kafka-admin: { condition: service_healthy }
+      rabbitmq-1: { condition: service_healthy }
+    ports:
+      - "127.0.0.1:8081:8081"
+    environment:
+      JAVA_TOOL_OPTIONS: "-Xmx220m -Xms128m"
+      SERVER_PORT: 8081
+      DB_URL: jdbc:postgresql://${RDS_HOST}:${RDS_PORT}/digitalfix_workorders
+      DB_USERNAME: ${DB_USERNAME}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DDL_AUTO: update
+      KAFKA_BOOTSTRAP_SERVERS: kafka-1:29092,kafka-2:29093,kafka-3:29094
+      RABBITMQ_HOST: rabbitmq-1
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USERNAME: ${RABBITMQ_USERNAME}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
+    healthcheck:
+      test: [ "CMD-SHELL", "wget -qO- http://localhost:8081/actuator/health | grep -q UP" ]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+    networks: [ digitalfix-net ]
+    restart: unless-stopped
+
+  ms-catalog:
+    build: ../ms-digitalfix-catalog
+    container_name: df-ms-catalog
+    ports:
+      - "127.0.0.1:8082:8082"
+    environment:
+      JAVA_TOOL_OPTIONS: "-Xmx220m -Xms128m"
+      SERVER_PORT: 8082
+      DB_URL: jdbc:postgresql://${RDS_HOST}:${RDS_PORT}/digitalfix_catalog
+      DB_USERNAME: ${DB_USERNAME}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DDL_AUTO: update
+      JPA_SHOW_SQL: "false"
+      H2_CONSOLE_ENABLED: "false"
+      SQL_INIT_MODE: ${CATALOG_SQL_INIT_MODE:-never}
+    healthcheck:
+      test: [ "CMD-SHELL", "wget -qO- http://localhost:8082/actuator/health | grep -q UP" ]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+    networks: [ digitalfix-net ]
+    restart: unless-stopped
+
+  ms-audit:
+    build: ../ms-digitalfix-audit
+    container_name: df-ms-audit
+    depends_on:
+      ms-kafka-admin: { condition: service_healthy }
+    ports:
+      - "127.0.0.1:8087:8087"
+    environment:
+      JAVA_TOOL_OPTIONS: "-Xmx220m -Xms128m"
+      SERVER_PORT: 8087
+      DB_URL: jdbc:postgresql://${RDS_HOST}:${RDS_PORT}/digitalfix_audit
+      DB_USERNAME: ${DB_USERNAME}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DDL_AUTO: update
+      KAFKA_BOOTSTRAP_SERVERS: kafka-1:29092,kafka-2:29093,kafka-3:29094
+    healthcheck:
+      test: [ "CMD-SHELL", "wget -qO- http://localhost:8087/actuator/health | grep -q UP" ]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+    networks: [ digitalfix-net ]
+    restart: unless-stopped
+
+  ms-report:
+    build: ../ms-digitalfix-report
+    container_name: df-ms-report
+    depends_on:
+      ms-kafka-admin: { condition: service_healthy }
+    ports:
+      - "127.0.0.1:8088:8088"
+    environment:
+      JAVA_TOOL_OPTIONS: "-Xmx220m -Xms128m"
+      SERVER_PORT: 8088
+      DB_URL: jdbc:postgresql://${RDS_HOST}:${RDS_PORT}/digitalfix_report
+      DB_USERNAME: ${DB_USERNAME}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DDL_AUTO: update
+      KAFKA_BOOTSTRAP_SERVERS: kafka-1:29092,kafka-2:29093,kafka-3:29094
+    healthcheck:
+      test: [ "CMD-SHELL", "wget -qO- http://localhost:8088/actuator/health | grep -q UP" ]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+    networks: [ digitalfix-net ]
+    restart: unless-stopped
+
+  ms-notify:
+    build: ../ms-digitalfix-notify
+    container_name: df-ms-notify
+    depends_on:
+      rabbitmq-1: { condition: service_healthy }
+    ports:
+      - "127.0.0.1:8083:8083"
+    environment:
+      JAVA_TOOL_OPTIONS: "-Xmx220m -Xms128m"
+      SERVER_PORT: 8083
+      RABBITMQ_HOST: rabbitmq-1
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USERNAME: ${RABBITMQ_USERNAME}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
+    healthcheck:
+      test: [ "CMD-SHELL", "wget -qO- http://localhost:8083/actuator/health | grep -q UP" ]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+    networks: [ digitalfix-net ]
+    restart: unless-stopped
+
+  ms-rabbit-admin:
+    build: ../ms-digitalfix-rabbit-admin
+    container_name: df-ms-rabbit-admin
+    depends_on:
+      rabbitmq-1: { condition: service_healthy }
+    ports:
+      - "127.0.0.1:8084:8084"
+    environment:
+      JAVA_TOOL_OPTIONS: "-Xmx220m -Xms128m"
+      SERVER_PORT: 8084
+      RABBITMQ_HOST: rabbitmq-1
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USERNAME: ${RABBITMQ_USERNAME}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
+    healthcheck:
+      test: [ "CMD-SHELL", "wget -qO- http://localhost:8084/actuator/health | grep -q UP" ]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+    networks: [ digitalfix-net ]
+    restart: unless-stopped
+
+  ms-bff:
+    build: ../ms-digitalfix-bff
+    container_name: df-ms-bff
+    depends_on:
+      ms-workorders: { condition: service_healthy }
+      ms-catalog: { condition: service_healthy }
+      ms-audit: { condition: service_healthy }
+      ms-report: { condition: service_healthy }
+    ports:
+      - "8080:8080"
+    environment:
+      JAVA_TOOL_OPTIONS: "-Xmx220m -Xms128m"
+      SERVER_PORT: 8080
+      AZURE_TENANT_ID: ${AZURE_TENANT_ID}
+      AZURE_AUDIENCES: ${AZURE_AUDIENCES}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS}
+      MS_WORKORDERS_URL: http://ms-workorders:8081
+      MS_CATALOG_URL: http://ms-catalog:8082
+      MS_AUDIT_URL: http://ms-audit:8087
+      MS_REPORT_URL: http://ms-report:8088
+    healthcheck:
+      test: [ "CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health | grep -q UP" ]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+    networks: [ digitalfix-net ]
+    restart: unless-stopped
